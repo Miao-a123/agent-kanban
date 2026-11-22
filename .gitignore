@@ -1,0 +1,6 @@
+/target
+/.tmp
+/.run
+*.db
+*.db-shm
+*.db-wal

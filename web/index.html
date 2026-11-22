@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Kanban · 多 Agent 项目管理看板</title>
+<link rel="icon" href="/favicon.ico">
+<style>
+  :root{
+    --bg:#0e1117; --bg2:#151a23; --panel:#1b2230; --panel2:#222b3b;
+    --line:#2b3548; --txt:#e6ebf2; --dim:#8a97ad; --accent:#5b8def;
+    --todo:#6b7688; --doing:#e0a24a; --done:#3fb27f;
+    --high:#e5634d; --normal:#5b8def; --low:#7d8899;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{background:radial-gradient(1200px 800px at 80% -10%, #17202e 0%, var(--bg) 55%);
+    color:var(--txt);font:14px/1.5 -apple-system,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+    overflow:hidden}
+  .app{display:flex;height:100vh}
+
+  /* sidebar: agents + projects */
+  .side{width:300px;min-width:300px;background:var(--bg2);border-right:1px solid var(--line);
+    display:flex;flex-direction:column}
+  .side .brand{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+  .brand h1{font-size:15px;margin:0;letter-spacing:.5px}
+  .brand .sub{color:var(--dim);font-size:11.5px;margin-top:3px}
+  .agentbar{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
+  .agentbar label{color:var(--dim);font-size:11.5px;white-space:nowrap}
+  select,input,textarea{background:var(--panel);color:var(--txt);border:1px solid var(--line);
+    border-radius:8px;padding:7px 9px;font:inherit;outline:none}
+  select:focus,input:focus,textarea:focus{border-color:var(--accent)}
+  .search{padding:10px 14px;border-bottom:1px solid var(--line)}
+  .search input{width:100%}
+  .projs{flex:1;overflow-y:auto;padding:8px}
+  .pcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+    padding:11px 12px;margin-bottom:8px;cursor:pointer;transition:.15s}
+  .pcard:hover{border-color:var(--accent);transform:translateX(2px)}
+  .pcard.active{border-color:var(--accent);background:var(--panel2)}
+  .pcard .pn{font-weight:600;font-size:13.5px;display:flex;justify-content:space-between;gap:8px}
+  .pcard .pg{color:var(--dim);font-size:11.5px;margin:3px 0 6px;
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .tags{display:flex;flex-wrap:wrap;gap:4px}
+  .tag{font-size:10.5px;background:#243147;color:#9db4d8;padding:1px 7px;border-radius:20px}
+  .badge{font-size:10px;padding:1px 8px;border-radius:20px;white-space:nowrap;align-self:center}
+  .s-active{background:#1e3a2b;color:#5fd08f}
+  .s-planning{background:#2a3350;color:#8fa6e0}
+  .s-paused{background:#3a3320;color:#d9b45a}
+  .s-done{background:#213a34;color:#54c6a0}
+  .s-archived{background:#2a2f3a;color:#7d8899}
+  .minidots{display:flex;gap:6px;margin-top:7px;font-size:10.5px;color:var(--dim)}
+  .minidots b{color:var(--txt)}
+  .newbtn{margin:10px 14px 14px;padding:9px;background:var(--accent);color:#fff;border:none;
+    border-radius:9px;font-weight:600;cursor:pointer;font-size:13px}
+  .newbtn:hover{filter:brightness(1.1)}
+
+  /* main kanban area */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .topbar{height:58px;min-height:58px;border-bottom:1px solid var(--line);display:flex;
+    align-items:center;padding:0 20px;gap:14px;background:var(--bg2)}
+  .topbar .tname{font-size:16px;font-weight:700}
+  .topbar .tgoal{color:var(--dim);font-size:12px;max-width:44vw;overflow:hidden;
+    text-overflow:ellipsis;white-space:nowrap}
+  .spacer{flex:1}
+  .btn{background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:8px;
+    padding:7px 12px;cursor:pointer;font-size:12.5px}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .board{flex:1;display:flex;gap:14px;padding:16px 18px;overflow-x:auto;overflow-y:hidden}
+  .col{width:300px;min-width:300px;background:var(--bg2);border:1px solid var(--line);
+    border-radius:var(--radius);display:flex;flex-direction:column;max-height:100%}
+  .col.dragover{border-color:var(--accent);background:#182234}
+  .colhead{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+  .colhead .dot{width:9px;height:9px;border-radius:50%}
+  .colhead .cname{font-weight:600;font-size:13px}
+  .colhead .cnt{color:var(--dim);font-size:11.5px;margin-left:auto;background:var(--panel);
+    padding:1px 8px;border-radius:20px}
+  .cards{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:9px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:11px 12px;
+    cursor:grab;position:relative;transition:.12s}
+  .card:hover{border-color:#3d5176}
+  .card.dragging{opacity:.4}
+  .card .ct{font-size:13px;font-weight:600;line-height:1.4;padding-right:18px}
+  .card .cn{color:var(--dim);font-size:11.5px;margin-top:5px;white-space:pre-wrap;
+    display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .card .pri{position:absolute;top:10px;right:10px;width:8px;height:8px;border-radius:50%}
+  .pri-high{background:var(--high)} .pri-normal{background:var(--normal)} .pri-low{background:var(--low)}
+  .card .cfoot{display:flex;gap:8px;margin-top:8px;font-size:10.5px;color:var(--dim);align-items:center}
+  .card .del{margin-left:auto;color:#c05a5a;cursor:pointer;opacity:0;transition:.1s}
+  .card:hover .del{opacity:1}
+  .addcard{margin:2px 10px 12px;padding:9px;border:1px dashed var(--line);color:var(--dim);
+    background:transparent;border-radius:9px;cursor:pointer;font-size:12.5px}
+  .addcard:hover{border-color:var(--accent);color:var(--accent)}
+
+  .empty{color:var(--dim);text-align:center;margin:auto;padding:40px}
+  .empty .big{font-size:40px;opacity:.35;margin-bottom:10px}
+
+  /* detail drawer */
+  .drawer{position:fixed;top:0;right:-520px;width:500px;height:100vh;background:var(--bg2);
+    border-left:1px solid var(--line);box-shadow:-20px 0 60px rgba(0,0,0,.4);transition:right .25s;
+    display:flex;flex-direction:column;z-index:50}
+  .drawer.open{right:0}
+  .drawer .dhead{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;
+    align-items:center;gap:10px}
+  .drawer .dhead h2{margin:0;font-size:16px}
+  .drawer .dbody{flex:1;overflow-y:auto;padding:16px 18px}
+  .sec{margin-bottom:20px}
+  .sec h3{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;margin:0 0 9px;
+    font-weight:600}
+  .kv{display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed #232d3d;font-size:12.5px}
+  .kv .k{color:var(--dim);min-width:74px}
+  .kv .v{word-break:break-all}
+  .tl{border-left:2px solid var(--line);padding-left:12px;margin-left:4px}
+  .tl .ev{position:relative;padding:4px 0;font-size:12.5px}
+  .tl .ev::before{content:"";position:absolute;left:-17px;top:9px;width:8px;height:8px;
+    border-radius:50%;background:var(--accent)}
+  .tl .at{color:var(--dim);font-size:10.5px}
+  .dec{background:var(--panel);border-left:3px solid var(--doing);border-radius:6px;
+    padding:8px 10px;margin-bottom:7px;font-size:12.5px}
+  .addrow{display:flex;gap:6px;margin-top:8px}
+  .addrow input{flex:1}
+  .addrow .btn{padding:6px 10px}
+  .close{cursor:pointer;color:var(--dim);font-size:22px;line-height:1;margin-left:auto}
+  .close:hover{color:var(--txt)}
+
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;
+    justify-content:center;z-index:80}
+  .modal.open{display:flex}
+  .modal .box{background:var(--bg2);border:1px solid var(--line);border-radius:14px;width:420px;
+    padding:20px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+  .modal h2{margin:0 0 14px;font-size:16px}
+  .modal label{display:block;font-size:12px;color:var(--dim);margin:10px 0 5px}
+  .modal input,.modal textarea{width:100%}
+  .modal .row{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);
+    background:#243147;border:1px solid var(--accent);color:var(--txt);padding:10px 18px;
+    border-radius:10px;font-size:13px;transition:.25s;z-index:99;opacity:0}
+  .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+  .wsbadge{font-size:10.5px;color:var(--dim);background:var(--panel);padding:3px 9px;
+    border-radius:20px;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <h1>🗂 Agent Kanban</h1>
+      <div class="sub">多 Agent 项目管理看板 · 各 agent 独立工作空间</div>
+    </div>
+    <div class="agentbar">
+      <label>工作空间 (agent)</label>
+      <select id="wsSel" style="flex:1"></select>
+    </div>
+    <div class="search"><input id="q" placeholder="搜索项目名/目标/标签…"></div>
+    <div class="projs" id="projs"></div>
+    <button class="newbtn" id="newProjBtn">+ 新建项目看板</button>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <span class="tname" id="tName">选择左侧一个项目</span>
+      <span class="tgoal" id="tGoal"></span>
+      <span class="spacer"></span>
+      <span class="wsbadge" id="wsBadge">workspace: default</span>
+    </div>
+    <div class="board" id="board">
+      <div class="empty"><div class="big">🗂</div>左侧选一个项目，或新建一个看板</div>
+    </div>
+  </main>
+</div>
+
+<!-- detail drawer -->
+<div class="drawer" id="drawer">
+  <div class="dhead">
+    <h2 id="dName">项目详情</h2>
+    <span class="close" id="dClose">×</span>
+  </div>
+  <div class="dbody" id="dBody"></div>
+</div>
+
+<!-- new project modal -->
+<div class="modal" id="modal">
+  <div class="box">
+    <h2>新建项目看板</h2>
+    <label>项目名</label>
+    <input id="npName" placeholder="如：个人工作台 dsh-workbench">
+    <label>一句话目标</label>
+    <textarea id="npGoal" rows="2" placeholder="这个项目要达成什么"></textarea>
+    <label>状态</label>
+    <select id="npStatus">
+      <option value="active">进行中 (active)</option>
+      <option value="planning">计划中 (planning)</option>
+      <option value="paused">暂停 (paused)</option>
+      <option value="done">已完成 (done)</option>
+    </select>
+    <label>标签（逗号分隔）</label>
+    <input id="npTags" placeholder="dsh, linux, 部署">
+    <div class="row">
+      <button class="btn" id="npCancel">取消</button>
+      <button class="btn primary" id="npOk">创建</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const COLS = [
+  {key:'todo',  name:'待办',   color:'var(--todo)'},
+  {key:'doing', name:'进行中', color:'var(--doing)'},
+  {key:'done',  name:'完成',   color:'var(--done)'},
+];
+const ST = t => ({active:'进行中',planning:'计划中',paused:'暂停',done:'已完成',archived:'归档'}[t]||t);
+let state = { ws: localStorage.getItem('ak_ws') || '', projects: [], current: null, detail: null };
+
+const $ = s => document.querySelector(s);
+const esc = s => (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1800); }
+function wsParam(){ return state.ws ? ('?ws='+encodeURIComponent(state.ws)) : ''; }
+
+async function api(path, opt={}){
+  const r = await fetch('/api'+path, {headers:{'Content-Type':'application/json'}, ...opt});
+  const j = await r.json().catch(()=>({ok:false}));
+  if(!r.ok || j.ok===false) throw new Error(j.error||('HTTP '+r.status));
+  return j;
+}
+
+async function loadWorkspaces(){
+  const {items} = await api('/workspaces');
+  const sel = $('#wsSel'); sel.innerHTML='';
+  if(!items.length){ const o=document.createElement('option'); o.value='default'; o.textContent='default'; sel.appendChild(o); state.ws='default'; }
+  items.forEach(w=>{ const o=document.createElement('option'); o.value=w.id;
+    o.textContent = w.name===w.id ? w.id : (w.name+' ('+w.id+')'); sel.appendChild(o); });
+  if(!state.ws) state.ws = items[0] ? items[0].id : 'default';
+  sel.value = state.ws;
+  $('#wsBadge').textContent = 'workspace: '+state.ws;
+}
+
+async function loadProjects(){
+  const {items} = await api('/projects'+wsParam()+(location.hash?'' : ''));
+  state.projects = items;
+  renderProjects();
+}
+
+function renderProjects(){
+  const q = ($('#q').value||'').trim().toLowerCase();
+  const list = state.projects.filter(p=> !q || (p.name+' '+p.goal+' '+p.tags.join(' ')).toLowerCase().includes(q));
+  const box = $('#projs');
+  if(!list.length){ box.innerHTML='<div class="empty" style="padding:24px 8px"><div class="big">📋</div>还没有项目<br><span style="font-size:11px">点下方「新建项目看板」</span></div>'; return; }
+  box.innerHTML = list.map(p=>`
+    <div class="pcard ${state.current===p.id?'active':''}" data-id="${p.id}">
+      <div class="pn"><span>${esc(p.name)}</span><span class="badge s-${p.status}">${ST(p.status)}</span></div>
+      <div class="pg">${esc(p.goal)||'—'}</div>
+      <div class="tags">${p.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
+      <div class="minidots"><span>待办 <b>${p.todoCount}</b></span><span>进行 <b>${p.doingCount}</b></span><span>完成 <b>${p.doneCount}</b></span></div>
+    </div>`).join('');
+  box.querySelectorAll('.pcard').forEach(el=>el.onclick=()=>openBoard(el.dataset.id));
+}
+
+async function openBoard(id){
+  state.current = id;
+  renderProjects();
+  const {project} = await api('/projects/'+id+wsParam());
+  state.detail = project;
+  $('#tName').textContent = project.name;
+  $('#tGoal').textContent = project.goal || '';
+  renderBoard(project);
+}
+
+function renderBoard(p){
+  const byCol = {todo:[],doing:[],done:[]};
+  (p.tasks||[]).forEach(t=>{ (byCol[t.column]||byCol.todo).push(t); });
+  const board = $('#board');
+  board.innerHTML = COLS.map(c=>`
+    <div class="col" data-col="${c.key}">
+      <div class="colhead">
+        <span class="dot" style="background:${c.color}"></span>
+        <span class="cname">${c.name}</span>
+        <span class="cnt">${byCol[c.key].length}</span>
+      </div>
+      <div class="cards" data-col="${c.key}">
+        ${byCol[c.key].map(t=>cardHTML(t)).join('')}
+      </div>
+      <button class="addcard" data-col="${c.key}">+ 添加任务</button>
+    </div>`).join('');
+  bindBoard();
+}
+
+function cardHTML(t){
+  return `<div class="card" draggable="true" data-id="${t.id}">
+    <div class="pri pri-${t.priority}"></div>
+    <div class="ct">${esc(t.title)}</div>
+    ${t.note?`<div class="cn">${esc(t.note)}</div>`:''}
+    <div class="cfoot"><span>${t.priority}</span><span class="del" data-del="${t.id}">删除</span></div>
+  </div>`;
+}
+
+function bindBoard(){
+  // drag
+  document.querySelectorAll('.card').forEach(card=>{
+    card.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain', card.dataset.id);
+      card.classList.add('dragging'); });
+    card.addEventListener('dragend', ()=>card.classList.remove('dragging'));
+    card.querySelector('.del')?.addEventListener('click', async e=>{
+      e.stopPropagation();
+      if(!confirm('删除这张任务卡片？')) return;
+      await api('/projects/'+state.current+'/tasks/'+card.dataset.id+wsParam(), {method:'DELETE'});
+      await openBoard(state.current); toast('已删除');
+    });
+    // click card → edit title/note
+    card.addEventListener('click', ()=>{ editTask(card.dataset.taskid || card.dataset.id); });
+  });
+  document.querySelectorAll('.cards').forEach(cardsEl=>{
+    const col = cardsEl.dataset.col;
+    cardsEl.addEventListener('dragover', e=>{ e.preventDefault(); });
+    cardsEl.addEventListener('drop', async e=>{
+      e.preventDefault();
+      const tid = e.dataTransfer.getData('text/plain');
+      // compute order by position
+      const after = [...cardsEl.querySelectorAll('.card')].filter(c=>c.dataset.id!==tid);
+      const ids = after.map(c=>c.dataset.id);
+      // insert at drop point
+      const rect = cardsEl.getBoundingClientRect();
+      let idx = ids.length;
+      for(let i=0;i<after.length;i++){ const r=after[i].getBoundingClientRect();
+        if(e.clientY < r.top + r.height/2){ idx=i; break; } }
+      ids.splice(idx,0,tid);
+      await api('/projects/'+state.current+'/tasks/reorder'+wsParam(), {method:'POST',
+        body: JSON.stringify({column: col, ids})});
+      await openBoard(state.current); toast('已移动');
+    });
+  });
+  document.querySelectorAll('.col').forEach(colEl=>{
+    colEl.addEventListener('dragover', e=>{ e.preventDefault(); colEl.classList.add('dragover'); });
+    colEl.addEventListener('dragleave', ()=>colEl.classList.remove('dragover'));
+    colEl.addEventListener('drop', ()=>colEl.classList.remove('dragover'));
+  });
+  document.querySelectorAll('.addcard').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const title = prompt('任务标题：');
+      if(!title) return;
+      await api('/projects/'+state.current+'/tasks'+wsParam(), {method:'POST',
+        body: JSON.stringify({title, column: btn.dataset.col})});
+      await openBoard(state.current); toast('已添加');
+    };
+  });
+}
+
+async function editTask(tid){
+  const t = (state.detail.tasks||[]).find(x=>x.id===tid);
+  if(!t) return;
+  const title = prompt('修改任务标题：', t.title);
+  if(title===null) return;
+  const note = prompt('备注（可空）：', t.note||'');
+  await api('/projects/'+state.current+'/tasks/'+tid+wsParam(), {method:'PATCH',
+    body: JSON.stringify({title, note: note||''})});
+  await openBoard(state.current); toast('已更新');
+}
+
+/* ---- detail drawer ---- */
+function openDrawer(){
+  if(!state.detail) return;
+  const p = state.detail;
+  $('#dName').textContent = p.name;
+  const body = $('#dBody');
+  body.innerHTML = `
+    <div class="sec"><h3>目标</h3><div style="font-size:13px">${esc(p.goal)||'—'}</div>
+      <div class="tags" style="margin-top:8px">${p.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div></div>
+    <div class="sec"><h3>部署位置 / 地址 / 路径</h3>
+      ${(p.hosts||[]).map(h=>`<div class="kv"><span class="k">${esc(h.label)||'—'}</span><span class="v">${esc(h.value)}</span></div>`).join('')||'<div class="kv"><span class="v" style="color:var(--dim)">—</span></div>'}
+      <div class="addrow"><input id="hLabel" placeholder="标签(如 主机)"><input id="hVal" placeholder="值"><button class="btn" id="addHost">+</button></div>
+    </div>
+    <div class="sec"><h3>关键材料 / 文件 / 链接</h3>
+      ${(p.materials||[]).map(h=>`<div class="kv"><span class="k">${esc(h.label)||'—'}</span><span class="v">${esc(h.value)}</span></div>`).join('')||'<div class="kv"><span class="v" style="color:var(--dim)">—</span></div>'}
+      <div class="addrow"><input id="mLabel" placeholder="标签"><input id="mVal" placeholder="路径或链接"><button class="btn" id="addMat">+</button></div>
+    </div>
+    <div class="sec"><h3>时间线</h3>
+      <div class="tl">${(p.timeline||[]).map(e=>`<div class="ev"><div class="at">${esc(e.at)}</div>${esc(e.text)}</div>`).join('')||'<div class="ev" style="color:var(--dim)">暂无</div>'}</div>
+      <div class="addrow"><input id="tlTxt" placeholder="记一笔…"><button class="btn" id="addTl">+</button></div>
+    </div>
+    <div class="sec"><h3>重要决策 / 踩坑</h3>
+      ${(p.decisions||[]).map(d=>`<div class="dec">${esc(d.text)}</div>`).join('')||'<div style="color:var(--dim);font-size:12.5px">暂无</div>'}
+      <div class="addrow"><input id="deTxt" placeholder="记录一个决策或踩坑…"><button class="btn" id="addDec">+</button></div>
+    </div>`;
+  const q = wsParam();
+  const bind = (id, fn)=>$('#'+id).onclick=async()=>{ await fn(); await openBoard(state.current); await openDrawer(); };
+  bind('addHost', async()=>{ const v=$('#hVal').value; if(!v)return; await api('/projects/'+p.id+'/hosts'+q,{method:'POST',body:JSON.stringify({label:$('#hLabel').value,value:v})}); });
+  bind('addMat', async()=>{ const v=$('#mVal').value; if(!v)return; await api('/projects/'+p.id+'/materials'+q,{method:'POST',body:JSON.stringify({label:$('#mLabel').value,value:v})}); });
+  bind('addTl', async()=>{ const v=$('#tlTxt').value; if(!v)return; await api('/projects/'+p.id+'/events'+q,{method:'POST',body:JSON.stringify({text:v})}); });
+  bind('addDec', async()=>{ const v=$('#deTxt').value; if(!v)return; await api('/projects/'+p.id+'/decisions'+q,{method:'POST',body:JSON.stringify({text:v})}); });
+  $('#drawer').classList.add('open');
+}
+$('#dClose').onclick = ()=>$('#drawer').classList.remove('open');
+
+/* ---- new project ---- */
+$('#newProjBtn').onclick = ()=>{ $('#modal').classList.add('open'); };
+$('#npCancel').onclick = ()=>$('#modal').classList.remove('open');
+$('#npOk').onclick = async ()=>{
+  const name = $('#npName').value.trim();
+  if(!name){ toast('请填项目名'); return; }
+  const tags = $('#npTags').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const {project} = await api('/projects'+wsParam(), {method:'POST', body:JSON.stringify({
+    name, goal:$('#npGoal').value.trim(), status:$('#npStatus').value, tags})});
+  $('#modal').classList.remove('open');
+  $('#npName').value=$('#npGoal').value=$('#npTags').value='';
+  await loadProjects(); await openBoard(project.id); toast('已创建看板');
+};
+
+/* ---- workspace switch ---- */
+$('#wsSel').onchange = async e=>{
+  state.ws = e.target.value; localStorage.setItem('ak_ws', state.ws);
+  $('#wsBadge').textContent = 'workspace: '+state.ws;
+  state.current=null; $('#board').innerHTML='<div class="empty"><div class="big">🗂</div>左侧选一个项目</div>';
+  $('#tName').textContent='选择左侧一个项目'; $('#tGoal').textContent='';
+  await loadProjects();
+};
+
+/* ---- double click title opens detail ---- */
+$('#tName').ondblclick = openDrawer;
+
+$('#q').oninput = renderProjects;
+
+(async function init(){
+  await loadWorkspaces();
+  await loadProjects();
+  // auto open first project
+  if(state.projects.length){ openBoard(state.projects[0].id); }
+})();
+</script>
+</body>
+</html>
