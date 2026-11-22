@@ -20,6 +20,12 @@ pub struct Project {
     pub status: String,        // active | planning | paused | done | archived
     pub tags: Vec<String>,
     #[serde(default)]
+    pub intro: String,         // 项目介绍（markdown-ish 纯文本）
+    #[serde(default)]
+    pub features: Vec<String>, // 功能清单
+    #[serde(default)]
+    pub screenshots: Vec<String>, // 截图 URL / 路径
+    #[serde(default)]
     pub hosts: Vec<KV>,
     #[serde(default)]
     pub materials: Vec<KV>,

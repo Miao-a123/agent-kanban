@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Agent Kanban · 多 Agent 项目管理看板</title>
+<title>Agent Kanban · 多 Agent 项目工作台</title>
 <link rel="icon" href="/favicon.ico">
 <style>
   :root{
@@ -20,54 +20,118 @@
     overflow:hidden}
   .app{display:flex;height:100vh}
 
-  /* sidebar: agents + projects */
-  .side{width:300px;min-width:300px;background:var(--bg2);border-right:1px solid var(--line);
+  /* ---- far-left agent rail ---- */
+  .rail{width:76px;min-width:76px;background:linear-gradient(180deg,#10141c,#0c0f15);
+    border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;
+    padding:12px 0;gap:6px;overflow-y:auto}
+  .rail .rlogo{width:38px;height:38px;border-radius:11px;background:var(--accent);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:8px;
+    box-shadow:0 4px 14px rgba(91,141,239,.4)}
+  .rail .rsep{width:36px;height:1px;background:var(--line);margin:4px 0}
+  .agent{width:56px;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;
+    padding:6px 0;border-radius:12px;transition:.12s;position:relative}
+  .agent:hover{background:var(--panel)}
+  .agent.active{background:var(--panel2)}
+  .agent.active::before{content:"";position:absolute;left:-12px;top:50%;transform:translateY(-50%);
+    width:4px;height:26px;border-radius:0 3px 3px 0;background:var(--accent)}
+  .avatar{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-size:16px;color:#fff;letter-spacing:.5px}
+  .agent .aname{font-size:10px;color:var(--dim);max-width:56px;overflow:hidden;text-overflow:ellipsis;
+    white-space:nowrap;text-align:center}
+  .agent.active .aname{color:var(--txt)}
+  .agent .dotcnt{position:absolute;top:4px;right:2px;min-width:15px;height:15px;background:var(--high);
+    color:#fff;font-size:9px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+    padding:0 3px}
+
+  /* ---- projects sidebar ---- */
+  .side{width:270px;min-width:270px;background:var(--bg2);border-right:1px solid var(--line);
     display:flex;flex-direction:column}
-  .side .brand{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
-  .brand h1{font-size:15px;margin:0;letter-spacing:.5px}
-  .brand .sub{color:var(--dim);font-size:11.5px;margin-top:3px}
-  .agentbar{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;gap:8px;align-items:center}
-  .agentbar label{color:var(--dim);font-size:11.5px;white-space:nowrap}
+  .side .brand{padding:14px 16px 10px;border-bottom:1px solid var(--line);display:flex;
+    align-items:center;gap:8px}
+  .brand h1{font-size:14px;margin:0;letter-spacing:.3px}
+  .brand .sub{color:var(--dim);font-size:11px;margin-top:2px}
   select,input,textarea{background:var(--panel);color:var(--txt);border:1px solid var(--line);
     border-radius:8px;padding:7px 9px;font:inherit;outline:none}
   select:focus,input:focus,textarea:focus{border-color:var(--accent)}
-  .search{padding:10px 14px;border-bottom:1px solid var(--line)}
+  .search{padding:9px 12px;border-bottom:1px solid var(--line)}
   .search input{width:100%}
   .projs{flex:1;overflow-y:auto;padding:8px}
   .pcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
-    padding:11px 12px;margin-bottom:8px;cursor:pointer;transition:.15s}
+    padding:10px 11px;margin-bottom:8px;cursor:pointer;transition:.15s}
   .pcard:hover{border-color:var(--accent);transform:translateX(2px)}
   .pcard.active{border-color:var(--accent);background:var(--panel2)}
-  .pcard .pn{font-weight:600;font-size:13.5px;display:flex;justify-content:space-between;gap:8px}
-  .pcard .pg{color:var(--dim);font-size:11.5px;margin:3px 0 6px;
+  .pcard .pn{font-weight:600;font-size:13px;display:flex;justify-content:space-between;gap:8px}
+  .pcard .pg{color:var(--dim);font-size:11px;margin:3px 0 6px;
     display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
   .tags{display:flex;flex-wrap:wrap;gap:4px}
-  .tag{font-size:10.5px;background:#243147;color:#9db4d8;padding:1px 7px;border-radius:20px}
-  .badge{font-size:10px;padding:1px 8px;border-radius:20px;white-space:nowrap;align-self:center}
+  .tag{font-size:10px;background:#243147;color:#9db4d8;padding:1px 7px;border-radius:20px}
+  .badge{font-size:9.5px;padding:1px 7px;border-radius:20px;white-space:nowrap;align-self:center}
   .s-active{background:#1e3a2b;color:#5fd08f}
   .s-planning{background:#2a3350;color:#8fa6e0}
   .s-paused{background:#3a3320;color:#d9b45a}
   .s-done{background:#213a34;color:#54c6a0}
   .s-archived{background:#2a2f3a;color:#7d8899}
-  .minidots{display:flex;gap:6px;margin-top:7px;font-size:10.5px;color:var(--dim)}
+  .minidots{display:flex;gap:6px;margin-top:6px;font-size:10px;color:var(--dim)}
   .minidots b{color:var(--txt)}
-  .newbtn{margin:10px 14px 14px;padding:9px;background:var(--accent);color:#fff;border:none;
+  .newbtn{margin:9px 12px 12px;padding:9px;background:var(--accent);color:#fff;border:none;
     border-radius:9px;font-weight:600;cursor:pointer;font-size:13px}
   .newbtn:hover{filter:brightness(1.1)}
 
-  /* main kanban area */
+  /* ---- main ---- */
   .main{flex:1;display:flex;flex-direction:column;min-width:0}
-  .topbar{height:58px;min-height:58px;border-bottom:1px solid var(--line);display:flex;
+  .topbar{min-height:58px;border-bottom:1px solid var(--line);display:flex;
     align-items:center;padding:0 20px;gap:14px;background:var(--bg2)}
   .topbar .tname{font-size:16px;font-weight:700}
-  .topbar .tgoal{color:var(--dim);font-size:12px;max-width:44vw;overflow:hidden;
+  .topbar .tgoal{color:var(--dim);font-size:12px;max-width:40vw;overflow:hidden;
     text-overflow:ellipsis;white-space:nowrap}
   .spacer{flex:1}
+  .tabs{display:flex;gap:4px;background:var(--panel);border-radius:10px;padding:3px}
+  .tab{padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12.5px;color:var(--dim)}
+  .tab.active{background:var(--accent);color:#fff}
   .btn{background:var(--panel);border:1px solid var(--line);color:var(--txt);border-radius:8px;
     padding:7px 12px;cursor:pointer;font-size:12.5px}
   .btn:hover{border-color:var(--accent)}
   .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-  .board{flex:1;display:flex;gap:14px;padding:16px 18px;overflow-x:auto;overflow-y:hidden}
+  .content{flex:1;overflow-y:auto}
+
+  /* project info view */
+  .info{padding:24px 30px;max-width:1000px}
+  .info .hero{margin-bottom:22px}
+  .info .hero h2{margin:0 0 6px;font-size:22px}
+  .info .hero .g{color:var(--dim);font-size:13.5px;margin-bottom:10px}
+  .kicker{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.8px;
+    font-weight:600;margin:0 0 10px}
+  .block{background:var(--bg2);border:1px solid var(--line);border-radius:var(--radius);
+    padding:16px 18px;margin-bottom:16px}
+  .intro-text{font-size:13.5px;line-height:1.75;white-space:pre-wrap;color:#d3dbe8}
+  .feat-list{list-style:none;margin:0;padding:0}
+  .feat-list li{position:relative;padding:6px 0 6px 24px;font-size:13px;
+    border-bottom:1px dashed #232d3d}
+  .feat-list li:last-child{border-bottom:none}
+  .feat-list li::before{content:"✦";position:absolute;left:2px;color:var(--accent)}
+  .shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+  .shot{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#0b0e14;
+    cursor:zoom-in}
+  .shot img{width:100%;height:150px;object-fit:cover;display:block}
+  .shot .cap{font-size:10.5px;color:var(--dim);padding:5px 8px;word-break:break-all}
+  .kv{display:flex;gap:12px;padding:7px 0;border-bottom:1px dashed #232d3d;font-size:12.5px}
+  .kv .k{color:var(--dim);min-width:88px;flex-shrink:0}
+  .kv .v{word-break:break-all}
+  .kv .v a{color:#8fb3f0}
+  .tl{border-left:2px solid var(--line);padding-left:14px;margin-left:4px}
+  .tl .ev{position:relative;padding:5px 0;font-size:12.5px}
+  .tl .ev::before{content:"";position:absolute;left:-19px;top:10px;width:8px;height:8px;
+    border-radius:50%;background:var(--accent)}
+  .tl .at{color:var(--dim);font-size:10.5px}
+  .dec{background:var(--panel);border-left:3px solid var(--doing);border-radius:6px;
+    padding:8px 10px;margin-bottom:7px;font-size:12.5px}
+  .addrow{display:flex;gap:6px;margin-top:10px}
+  .addrow input{flex:1}
+  .addrow .btn{padding:6px 10px}
+  .muted{color:var(--dim);font-size:12.5px}
+
+  /* kanban view */
+  .board{display:flex;gap:14px;padding:16px 18px;height:100%;overflow-x:auto}
   .col{width:300px;min-width:300px;background:var(--bg2);border:1px solid var(--line);
     border-radius:var(--radius);display:flex;flex-direction:column;max-height:100%}
   .col.dragover{border-color:var(--accent);background:#182234}
@@ -96,94 +160,70 @@
   .empty{color:var(--dim);text-align:center;margin:auto;padding:40px}
   .empty .big{font-size:40px;opacity:.35;margin-bottom:10px}
 
-  /* detail drawer */
-  .drawer{position:fixed;top:0;right:-520px;width:500px;height:100vh;background:var(--bg2);
-    border-left:1px solid var(--line);box-shadow:-20px 0 60px rgba(0,0,0,.4);transition:right .25s;
-    display:flex;flex-direction:column;z-index:50}
-  .drawer.open{right:0}
-  .drawer .dhead{padding:16px 18px;border-bottom:1px solid var(--line);display:flex;
-    align-items:center;gap:10px}
-  .drawer .dhead h2{margin:0;font-size:16px}
-  .drawer .dbody{flex:1;overflow-y:auto;padding:16px 18px}
-  .sec{margin-bottom:20px}
-  .sec h3{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;margin:0 0 9px;
-    font-weight:600}
-  .kv{display:flex;gap:10px;padding:6px 0;border-bottom:1px dashed #232d3d;font-size:12.5px}
-  .kv .k{color:var(--dim);min-width:74px}
-  .kv .v{word-break:break-all}
-  .tl{border-left:2px solid var(--line);padding-left:12px;margin-left:4px}
-  .tl .ev{position:relative;padding:4px 0;font-size:12.5px}
-  .tl .ev::before{content:"";position:absolute;left:-17px;top:9px;width:8px;height:8px;
-    border-radius:50%;background:var(--accent)}
-  .tl .at{color:var(--dim);font-size:10.5px}
-  .dec{background:var(--panel);border-left:3px solid var(--doing);border-radius:6px;
-    padding:8px 10px;margin-bottom:7px;font-size:12.5px}
-  .addrow{display:flex;gap:6px;margin-top:8px}
-  .addrow input{flex:1}
-  .addrow .btn{padding:6px 10px}
-  .close{cursor:pointer;color:var(--dim);font-size:22px;line-height:1;margin-left:auto}
-  .close:hover{color:var(--txt)}
-
-  /* modal */
+  /* modal + lightbox */
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;
     justify-content:center;z-index:80}
   .modal.open{display:flex}
-  .modal .box{background:var(--bg2);border:1px solid var(--line);border-radius:14px;width:420px;
+  .modal .box{background:var(--bg2);border:1px solid var(--line);border-radius:14px;width:440px;
     padding:20px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
   .modal h2{margin:0 0 14px;font-size:16px}
   .modal label{display:block;font-size:12px;color:var(--dim);margin:10px 0 5px}
   .modal input,.modal textarea{width:100%}
   .modal .row{display:flex;gap:8px;margin-top:16px;justify-content:flex-end}
+  .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;
+    justify-content:center;z-index:90;cursor:zoom-out}
+  .lightbox.open{display:flex}
+  .lightbox img{max-width:92vw;max-height:92vh;border-radius:8px}
   .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(80px);
     background:#243147;border:1px solid var(--accent);color:var(--txt);padding:10px 18px;
     border-radius:10px;font-size:13px;transition:.25s;z-index:99;opacity:0}
   .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
-  .wsbadge{font-size:10.5px;color:var(--dim);background:var(--panel);padding:3px 9px;
-    border-radius:20px;border:1px solid var(--line)}
 </style>
 </head>
 <body>
 <div class="app">
+  <!-- 最左侧：agent 图标栏 -->
+  <nav class="rail" id="rail">
+    <div class="rlogo">🗂</div>
+    <div class="rsep"></div>
+    <div id="agents"></div>
+  </nav>
+
+  <!-- 项目列表 -->
   <aside class="side">
     <div class="brand">
-      <h1>🗂 Agent Kanban</h1>
-      <div class="sub">多 Agent 项目管理看板 · 各 agent 独立工作空间</div>
-    </div>
-    <div class="agentbar">
-      <label>工作空间 (agent)</label>
-      <select id="wsSel" style="flex:1"></select>
+      <div>
+        <h1>Agent Kanban</h1>
+        <div class="sub" id="wsSub">项目工作台</div>
+      </div>
     </div>
     <div class="search"><input id="q" placeholder="搜索项目名/目标/标签…"></div>
     <div class="projs" id="projs"></div>
-    <button class="newbtn" id="newProjBtn">+ 新建项目看板</button>
+    <button class="newbtn" id="newProjBtn">+ 新建项目</button>
   </aside>
 
+  <!-- 主区 -->
   <main class="main">
     <div class="topbar">
       <span class="tname" id="tName">选择左侧一个项目</span>
       <span class="tgoal" id="tGoal"></span>
       <span class="spacer"></span>
-      <span class="wsbadge" id="wsBadge">workspace: default</span>
+      <div class="tabs" id="tabs" style="display:none">
+        <div class="tab active" data-tab="info">项目信息</div>
+        <div class="tab" data-tab="board">任务看板</div>
+      </div>
+      <button class="btn" id="editBtn" style="display:none">编辑</button>
     </div>
-    <div class="board" id="board">
-      <div class="empty"><div class="big">🗂</div>左侧选一个项目，或新建一个看板</div>
+    <div class="content" id="content">
+      <div class="empty"><div class="big">🗂</div>左侧选一个项目，或新建一个</div>
     </div>
   </main>
-</div>
-
-<!-- detail drawer -->
-<div class="drawer" id="drawer">
-  <div class="dhead">
-    <h2 id="dName">项目详情</h2>
-    <span class="close" id="dClose">×</span>
-  </div>
-  <div class="dbody" id="dBody"></div>
 </div>
 
 <!-- new project modal -->
 <div class="modal" id="modal">
   <div class="box">
-    <h2>新建项目看板</h2>
+    <h2>新建项目</h2>
     <label>项目名</label>
     <input id="npName" placeholder="如：个人工作台 dsh-workbench">
     <label>一句话目标</label>
@@ -204,91 +244,189 @@
   </div>
 </div>
 
+<div class="lightbox" id="lightbox"><img id="lbImg" src=""></div>
 <div class="toast" id="toast"></div>
 
 <script>
-const COLS = [
-  {key:'todo',  name:'待办',   color:'var(--todo)'},
-  {key:'doing', name:'进行中', color:'var(--doing)'},
-  {key:'done',  name:'完成',   color:'var(--done)'},
-];
+const COLS = [{key:'todo',name:'待办',color:'var(--todo)'},
+              {key:'doing',name:'进行中',color:'var(--doing)'},
+              {key:'done',name:'完成',color:'var(--done)'}];
 const ST = t => ({active:'进行中',planning:'计划中',paused:'暂停',done:'已完成',archived:'归档'}[t]||t);
-let state = { ws: localStorage.getItem('ak_ws') || '', projects: [], current: null, detail: null };
+const AVA = ['#5b8def','#e0a24a','#3fb27f','#e5634d','#9b6ef3','#2bb3b3','#d95fa0','#7d8899'];
+let state = { ws: localStorage.getItem('ak_ws')||'', workspaces:[], projects:[], current:null, detail:null, tab:'info' };
 
 const $ = s => document.querySelector(s);
-const esc = s => (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc = s => (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function toast(m){ const t=$('#toast'); t.textContent=m; t.classList.add('show');
   clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),1800); }
-function wsParam(){ return state.ws ? ('?ws='+encodeURIComponent(state.ws)) : ''; }
+function wsParam(){ return state.ws?('?ws='+encodeURIComponent(state.ws)):''; }
+function colorOf(id){ let h=0; for(const c of id) h=(h*31+c.charCodeAt(0))>>>0; return AVA[h%AVA.length]; }
+function initials(name){ const s=(name||'?').replace(/[^\w\u4e00-\u9fa5]/g,''); return (s.slice(0,2)||'?').toUpperCase(); }
 
-async function api(path, opt={}){
-  const r = await fetch('/api'+path, {headers:{'Content-Type':'application/json'}, ...opt});
-  const j = await r.json().catch(()=>({ok:false}));
-  if(!r.ok || j.ok===false) throw new Error(j.error||('HTTP '+r.status));
+async function api(path,opt={}){
+  const r=await fetch('/api'+path,{headers:{'Content-Type':'application/json'},...opt});
+  const j=await r.json().catch(()=>({ok:false}));
+  if(!r.ok||j.ok===false) throw new Error(j.error||('HTTP '+r.status));
   return j;
 }
 
+/* ---- far-left agent rail ---- */
 async function loadWorkspaces(){
-  const {items} = await api('/workspaces');
-  const sel = $('#wsSel'); sel.innerHTML='';
-  if(!items.length){ const o=document.createElement('option'); o.value='default'; o.textContent='default'; sel.appendChild(o); state.ws='default'; }
-  items.forEach(w=>{ const o=document.createElement('option'); o.value=w.id;
-    o.textContent = w.name===w.id ? w.id : (w.name+' ('+w.id+')'); sel.appendChild(o); });
-  if(!state.ws) state.ws = items[0] ? items[0].id : 'default';
-  sel.value = state.ws;
-  $('#wsBadge').textContent = 'workspace: '+state.ws;
+  const {items}=await api('/workspaces');
+  state.workspaces=items;
+  if(!state.ws) state.ws = items[0]?items[0].id:'default';
+  renderRail();
+}
+function renderRail(){
+  const rail=$('#agents');
+  rail.innerHTML = state.workspaces.map(w=>{
+    const act = w.id===state.ws;
+    return `<div class="agent ${act?'active':''}" data-ws="${esc(w.id)}" title="${esc(w.name)}">
+      <div class="avatar" style="background:${colorOf(w.id)}">${esc(initials(w.name))}</div>
+      <div class="aname">${esc(w.name)}</div>
+    </div>`;
+  }).join('') || '<div class="muted" style="font-size:10px;text-align:center;padding:8px">暂无 agent</div>';
+  rail.querySelectorAll('.agent').forEach(el=>el.onclick=()=>switchWs(el.dataset.ws));
+  const cur = state.workspaces.find(w=>w.id===state.ws);
+  $('#wsSub').textContent = cur? cur.name : '项目工作台';
+}
+async function switchWs(ws){
+  state.ws=ws; localStorage.setItem('ak_ws',ws); state.current=null; state.detail=null;
+  renderRail();
+  $('#tName').textContent='选择左侧一个项目'; $('#tGoal').textContent='';
+  $('#tabs').style.display='none'; $('#editBtn').style.display='none';
+  $('#content').innerHTML='<div class="empty"><div class="big">🗂</div>选一个项目</div>';
+  await loadProjects();
+  if(state.projects.length) openProject(state.projects[0].id);
 }
 
 async function loadProjects(){
-  const {items} = await api('/projects'+wsParam()+(location.hash?'' : ''));
-  state.projects = items;
-  renderProjects();
+  const {items}=await api('/projects'+wsParam());
+  state.projects=items; renderProjects();
 }
-
 function renderProjects(){
-  const q = ($('#q').value||'').trim().toLowerCase();
-  const list = state.projects.filter(p=> !q || (p.name+' '+p.goal+' '+p.tags.join(' ')).toLowerCase().includes(q));
-  const box = $('#projs');
-  if(!list.length){ box.innerHTML='<div class="empty" style="padding:24px 8px"><div class="big">📋</div>还没有项目<br><span style="font-size:11px">点下方「新建项目看板」</span></div>'; return; }
-  box.innerHTML = list.map(p=>`
+  const q=($('#q').value||'').trim().toLowerCase();
+  const list=state.projects.filter(p=>!q||(p.name+' '+p.goal+' '+p.tags.join(' ')).toLowerCase().includes(q));
+  const box=$('#projs');
+  if(!list.length){ box.innerHTML='<div class="empty" style="padding:24px 8px"><div class="big">📋</div>还没有项目<br><span style="font-size:11px">点下方「新建项目」</span></div>'; return; }
+  box.innerHTML=list.map(p=>`
     <div class="pcard ${state.current===p.id?'active':''}" data-id="${p.id}">
       <div class="pn"><span>${esc(p.name)}</span><span class="badge s-${p.status}">${ST(p.status)}</span></div>
       <div class="pg">${esc(p.goal)||'—'}</div>
       <div class="tags">${p.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div>
       <div class="minidots"><span>待办 <b>${p.todoCount}</b></span><span>进行 <b>${p.doingCount}</b></span><span>完成 <b>${p.doneCount}</b></span></div>
     </div>`).join('');
-  box.querySelectorAll('.pcard').forEach(el=>el.onclick=()=>openBoard(el.dataset.id));
+  box.querySelectorAll('.pcard').forEach(el=>el.onclick=()=>openProject(el.dataset.id));
 }
 
-async function openBoard(id){
-  state.current = id;
+async function openProject(id){
+  state.current=id;
   renderProjects();
-  const {project} = await api('/projects/'+id+wsParam());
-  state.detail = project;
-  $('#tName').textContent = project.name;
-  $('#tGoal').textContent = project.goal || '';
-  renderBoard(project);
+  const {project}=await api('/projects/'+id+wsParam());
+  state.detail=project;
+  $('#tName').textContent=project.name;
+  $('#tGoal').textContent=project.goal||'';
+  $('#tabs').style.display='flex'; $('#editBtn').style.display='';
+  setTab(state.tab);
 }
 
+function setTab(tab){
+  state.tab=tab;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===tab));
+  if(!state.detail){ return; }
+  if(tab==='info') renderInfo(state.detail); else renderBoard(state.detail);
+}
+
+/* ---- 项目信息主视图 ---- */
+function renderInfo(p){
+  const shots=(p.screenshots||[]);
+  const c=$('#content');
+  c.innerHTML=`<div class="info">
+    <div class="hero">
+      <div class="tags" style="margin-bottom:8px">
+        <span class="badge s-${p.status}">${ST(p.status)}</span>
+        ${p.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="kicker">项目介绍</div>
+      <div class="intro-text" id="introText">${p.intro?esc(p.intro):'<span class="muted">还没有介绍，点右上「编辑」补充，或让 agent 用 ak_update_project 写入。</span>'}</div>
+    </div>
+
+    <div class="block">
+      <div class="kicker">功能 / 特性</div>
+      ${(p.features&&p.features.length)?`<ul class="feat-list">${p.features.map(f=>`<li>${esc(f)}</li>`).join('')}</ul>`:'<div class="muted">暂无功能清单</div>'}
+      <div class="addrow"><input id="fIn" placeholder="添加一条功能…"><button class="btn" id="addF">+</button></div>
+    </div>
+
+    <div class="block">
+      <div class="kicker">项目截图</div>
+      ${shots.length?`<div class="shots">${shots.map(u=>`<div class="shot" data-img="${esc(u)}"><img src="${esc(u)}" loading="lazy" onerror="this.style.opacity=.3"><div class="cap">${esc(u)}</div></div>`).join('')}</div>`:'<div class="muted">暂无截图</div>'}
+      <div class="addrow"><input id="sIn" placeholder="截图 URL 或本机路径…"><button class="btn" id="addS">+</button></div>
+    </div>
+
+    <div class="block">
+      <div class="kicker">项目地址 / 部署位置</div>
+      ${(p.hosts||[]).map(h=>`<div class="kv"><span class="k">${esc(h.label)||'—'}</span><span class="v">${renderVal(h.value)}</span></div>`).join('')||'<div class="muted">暂无</div>'}
+      <div class="addrow"><input id="hLabel" placeholder="标签(主机/入口/仓库)"><input id="hVal" placeholder="值"><button class="btn" id="addH">+</button></div>
+    </div>
+
+    <div class="block">
+      <div class="kicker">相关文件 / 材料 / 链接</div>
+      ${(p.materials||[]).map(h=>`<div class="kv"><span class="k">${esc(h.label)||'—'}</span><span class="v">${renderVal(h.value)}</span></div>`).join('')||'<div class="muted">暂无</div>'}
+      <div class="addrow"><input id="mLabel" placeholder="标签(设计稿/文档/源码)"><input id="mVal" placeholder="路径或链接"><button class="btn" id="addM">+</button></div>
+    </div>
+
+    <div class="block">
+      <div class="kicker">修改日志 / 时间线</div>
+      <div class="tl">${(p.timeline||[]).map(e=>`<div class="ev"><div class="at">${esc(e.at)}</div>${esc(e.text)}</div>`).join('')||'<div class="ev muted">暂无</div>'}</div>
+      <div class="addrow"><input id="tlTxt" placeholder="记一笔…"><button class="btn" id="addTl">+</button></div>
+    </div>
+
+    <div class="block">
+      <div class="kicker">重要决策 / 踩坑</div>
+      ${(p.decisions||[]).map(d=>`<div class="dec">${esc(d.text)}</div>`).join('')||'<div class="muted">暂无</div>'}
+      <div class="addrow"><input id="deTxt" placeholder="记录一个决策或踩坑…"><button class="btn" id="addDec">+</button></div>
+    </div>
+  </div>`;
+
+  const q=wsParam(), pid=p.id;
+  const after=async()=>{ await refreshProject(); };
+  const bind=(id,fn)=>$('#'+id).onclick=async()=>{ await fn(); await after(); };
+  bind('addF',async()=>{const v=$('#fIn').value.trim(); if(!v)return; await api('/projects/'+pid+'/features'+q,{method:'POST',body:JSON.stringify({feature:v})}); toast('已加功能');});
+  bind('addS',async()=>{const v=$('#sIn').value.trim(); if(!v)return; await api('/projects/'+pid+'/screenshots'+q,{method:'POST',body:JSON.stringify({url:v})}); toast('已加截图');});
+  bind('addH',async()=>{const v=$('#hVal').value.trim(); if(!v)return; await api('/projects/'+pid+'/hosts'+q,{method:'POST',body:JSON.stringify({label:$('#hLabel').value.trim(),value:v})}); toast('已加地址');});
+  bind('addM',async()=>{const v=$('#mVal').value.trim(); if(!v)return; await api('/projects/'+pid+'/materials'+q,{method:'POST',body:JSON.stringify({label:$('#mLabel').value.trim(),value:v})}); toast('已加材料');});
+  bind('addTl',async()=>{const v=$('#tlTxt').value.trim(); if(!v)return; await api('/projects/'+pid+'/events'+q,{method:'POST',body:JSON.stringify({text:v})}); toast('已记录');});
+  bind('addDec',async()=>{const v=$('#deTxt').value.trim(); if(!v)return; await api('/projects/'+pid+'/decisions'+q,{method:'POST',body:JSON.stringify({text:v})}); toast('已记录');});
+  c.querySelectorAll('.shot').forEach(el=>el.onclick=()=>{ $('#lbImg').src=el.dataset.img; $('#lightbox').classList.add('open'); });
+}
+function renderVal(v){
+  const s=esc(v);
+  if(/^https?:\/\//.test(v)) return `<a href="${s}" target="_blank" rel="noopener">${s}</a>`;
+  return s;
+}
+async function refreshProject(){
+  const {project}=await api('/projects/'+state.current+wsParam());
+  state.detail=project;
+  $('#tName').textContent=project.name; $('#tGoal').textContent=project.goal||'';
+  setTab(state.tab);
+}
+
+/* ---- 任务看板视图 ---- */
 function renderBoard(p){
-  const byCol = {todo:[],doing:[],done:[]};
-  (p.tasks||[]).forEach(t=>{ (byCol[t.column]||byCol.todo).push(t); });
-  const board = $('#board');
-  board.innerHTML = COLS.map(c=>`
-    <div class="col" data-col="${c.key}">
-      <div class="colhead">
-        <span class="dot" style="background:${c.color}"></span>
-        <span class="cname">${c.name}</span>
-        <span class="cnt">${byCol[c.key].length}</span>
-      </div>
-      <div class="cards" data-col="${c.key}">
-        ${byCol[c.key].map(t=>cardHTML(t)).join('')}
-      </div>
-      <button class="addcard" data-col="${c.key}">+ 添加任务</button>
-    </div>`).join('');
+  const byCol={todo:[],doing:[],done:[]};
+  (p.tasks||[]).forEach(t=>{(byCol[t.column]||byCol.todo).push(t);});
+  $('#content').innerHTML=`<div class="board">${COLS.map(col=>`
+    <div class="col" data-col="${col.key}">
+      <div class="colhead"><span class="dot" style="background:${col.color}"></span>
+        <span class="cname">${col.name}</span><span class="cnt">${byCol[col.key].length}</span></div>
+      <div class="cards" data-col="${col.key}">${byCol[col.key].map(cardHTML).join('')}</div>
+      <button class="addcard" data-col="${col.key}">+ 添加任务</button>
+    </div>`).join('')}</div>`;
   bindBoard();
 }
-
 function cardHTML(t){
   return `<div class="card" draggable="true" data-id="${t.id}">
     <div class="pri pri-${t.priority}"></div>
@@ -297,137 +435,87 @@ function cardHTML(t){
     <div class="cfoot"><span>${t.priority}</span><span class="del" data-del="${t.id}">删除</span></div>
   </div>`;
 }
-
 function bindBoard(){
-  // drag
   document.querySelectorAll('.card').forEach(card=>{
-    card.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain', card.dataset.id);
-      card.classList.add('dragging'); });
-    card.addEventListener('dragend', ()=>card.classList.remove('dragging'));
-    card.querySelector('.del')?.addEventListener('click', async e=>{
-      e.stopPropagation();
-      if(!confirm('删除这张任务卡片？')) return;
-      await api('/projects/'+state.current+'/tasks/'+card.dataset.id+wsParam(), {method:'DELETE'});
-      await openBoard(state.current); toast('已删除');
+    card.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/plain',card.dataset.id);card.classList.add('dragging');});
+    card.addEventListener('dragend',()=>card.classList.remove('dragging'));
+    card.querySelector('.del')?.addEventListener('click',async e=>{
+      e.stopPropagation(); if(!confirm('删除这张任务卡片？'))return;
+      await api('/projects/'+state.current+'/tasks/'+card.dataset.id+wsParam(),{method:'DELETE'});
+      await refreshProject(); toast('已删除');
     });
-    // click card → edit title/note
-    card.addEventListener('click', ()=>{ editTask(card.dataset.taskid || card.dataset.id); });
+    card.addEventListener('click',()=>editTask(card.dataset.id));
   });
   document.querySelectorAll('.cards').forEach(cardsEl=>{
-    const col = cardsEl.dataset.col;
-    cardsEl.addEventListener('dragover', e=>{ e.preventDefault(); });
-    cardsEl.addEventListener('drop', async e=>{
+    const col=cardsEl.dataset.col;
+    cardsEl.addEventListener('dragover',e=>e.preventDefault());
+    cardsEl.addEventListener('drop',async e=>{
       e.preventDefault();
-      const tid = e.dataTransfer.getData('text/plain');
-      // compute order by position
-      const after = [...cardsEl.querySelectorAll('.card')].filter(c=>c.dataset.id!==tid);
-      const ids = after.map(c=>c.dataset.id);
-      // insert at drop point
-      const rect = cardsEl.getBoundingClientRect();
-      let idx = ids.length;
-      for(let i=0;i<after.length;i++){ const r=after[i].getBoundingClientRect();
-        if(e.clientY < r.top + r.height/2){ idx=i; break; } }
+      const tid=e.dataTransfer.getData('text/plain');
+      const after=[...cardsEl.querySelectorAll('.card')].filter(c=>c.dataset.id!==tid);
+      const ids=after.map(c=>c.dataset.id);
+      let idx=ids.length;
+      for(let i=0;i<after.length;i++){const r=after[i].getBoundingClientRect();if(e.clientY<r.top+r.height/2){idx=i;break;}}
       ids.splice(idx,0,tid);
-      await api('/projects/'+state.current+'/tasks/reorder'+wsParam(), {method:'POST',
-        body: JSON.stringify({column: col, ids})});
-      await openBoard(state.current); toast('已移动');
+      await api('/projects/'+state.current+'/tasks/reorder'+wsParam(),{method:'POST',body:JSON.stringify({column:col,ids})});
+      await refreshProject(); toast('已移动');
     });
   });
   document.querySelectorAll('.col').forEach(colEl=>{
-    colEl.addEventListener('dragover', e=>{ e.preventDefault(); colEl.classList.add('dragover'); });
-    colEl.addEventListener('dragleave', ()=>colEl.classList.remove('dragover'));
-    colEl.addEventListener('drop', ()=>colEl.classList.remove('dragover'));
+    colEl.addEventListener('dragover',e=>{e.preventDefault();colEl.classList.add('dragover');});
+    colEl.addEventListener('dragleave',()=>colEl.classList.remove('dragover'));
+    colEl.addEventListener('drop',()=>colEl.classList.remove('dragover'));
   });
   document.querySelectorAll('.addcard').forEach(btn=>{
-    btn.onclick = async ()=>{
-      const title = prompt('任务标题：');
-      if(!title) return;
-      await api('/projects/'+state.current+'/tasks'+wsParam(), {method:'POST',
-        body: JSON.stringify({title, column: btn.dataset.col})});
-      await openBoard(state.current); toast('已添加');
+    btn.onclick=async()=>{
+      const title=prompt('任务标题：'); if(!title)return;
+      await api('/projects/'+state.current+'/tasks'+wsParam(),{method:'POST',body:JSON.stringify({title,column:btn.dataset.col})});
+      await refreshProject(); toast('已添加');
     };
   });
 }
-
 async function editTask(tid){
-  const t = (state.detail.tasks||[]).find(x=>x.id===tid);
-  if(!t) return;
-  const title = prompt('修改任务标题：', t.title);
-  if(title===null) return;
-  const note = prompt('备注（可空）：', t.note||'');
-  await api('/projects/'+state.current+'/tasks/'+tid+wsParam(), {method:'PATCH',
-    body: JSON.stringify({title, note: note||''})});
-  await openBoard(state.current); toast('已更新');
+  const t=(state.detail.tasks||[]).find(x=>x.id===tid); if(!t)return;
+  const title=prompt('修改任务标题：',t.title); if(title===null)return;
+  const note=prompt('备注（可空）：',t.note||'');
+  await api('/projects/'+state.current+'/tasks/'+tid+wsParam(),{method:'PATCH',body:JSON.stringify({title,note:note||''})});
+  await refreshProject(); toast('已更新');
 }
 
-/* ---- detail drawer ---- */
-function openDrawer(){
-  if(!state.detail) return;
-  const p = state.detail;
-  $('#dName').textContent = p.name;
-  const body = $('#dBody');
-  body.innerHTML = `
-    <div class="sec"><h3>目标</h3><div style="font-size:13px">${esc(p.goal)||'—'}</div>
-      <div class="tags" style="margin-top:8px">${p.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join('')}</div></div>
-    <div class="sec"><h3>部署位置 / 地址 / 路径</h3>
-      ${(p.hosts||[]).map(h=>`<div class="kv"><span class="k">${esc(h.label)||'—'}</span><span class="v">${esc(h.value)}</span></div>`).join('')||'<div class="kv"><span class="v" style="color:var(--dim)">—</span></div>'}
-      <div class="addrow"><input id="hLabel" placeholder="标签(如 主机)"><input id="hVal" placeholder="值"><button class="btn" id="addHost">+</button></div>
-    </div>
-    <div class="sec"><h3>关键材料 / 文件 / 链接</h3>
-      ${(p.materials||[]).map(h=>`<div class="kv"><span class="k">${esc(h.label)||'—'}</span><span class="v">${esc(h.value)}</span></div>`).join('')||'<div class="kv"><span class="v" style="color:var(--dim)">—</span></div>'}
-      <div class="addrow"><input id="mLabel" placeholder="标签"><input id="mVal" placeholder="路径或链接"><button class="btn" id="addMat">+</button></div>
-    </div>
-    <div class="sec"><h3>时间线</h3>
-      <div class="tl">${(p.timeline||[]).map(e=>`<div class="ev"><div class="at">${esc(e.at)}</div>${esc(e.text)}</div>`).join('')||'<div class="ev" style="color:var(--dim)">暂无</div>'}</div>
-      <div class="addrow"><input id="tlTxt" placeholder="记一笔…"><button class="btn" id="addTl">+</button></div>
-    </div>
-    <div class="sec"><h3>重要决策 / 踩坑</h3>
-      ${(p.decisions||[]).map(d=>`<div class="dec">${esc(d.text)}</div>`).join('')||'<div style="color:var(--dim);font-size:12.5px">暂无</div>'}
-      <div class="addrow"><input id="deTxt" placeholder="记录一个决策或踩坑…"><button class="btn" id="addDec">+</button></div>
-    </div>`;
-  const q = wsParam();
-  const bind = (id, fn)=>$('#'+id).onclick=async()=>{ await fn(); await openBoard(state.current); await openDrawer(); };
-  bind('addHost', async()=>{ const v=$('#hVal').value; if(!v)return; await api('/projects/'+p.id+'/hosts'+q,{method:'POST',body:JSON.stringify({label:$('#hLabel').value,value:v})}); });
-  bind('addMat', async()=>{ const v=$('#mVal').value; if(!v)return; await api('/projects/'+p.id+'/materials'+q,{method:'POST',body:JSON.stringify({label:$('#mLabel').value,value:v})}); });
-  bind('addTl', async()=>{ const v=$('#tlTxt').value; if(!v)return; await api('/projects/'+p.id+'/events'+q,{method:'POST',body:JSON.stringify({text:v})}); });
-  bind('addDec', async()=>{ const v=$('#deTxt').value; if(!v)return; await api('/projects/'+p.id+'/decisions'+q,{method:'POST',body:JSON.stringify({text:v})}); });
-  $('#drawer').classList.add('open');
-}
-$('#dClose').onclick = ()=>$('#drawer').classList.remove('open');
+/* ---- edit project (intro/name/goal/status/tags) ---- */
+$('#editBtn').onclick=async()=>{
+  const p=state.detail; if(!p)return;
+  const name=prompt('项目名：',p.name); if(name===null)return;
+  const goal=prompt('一句话目标：',p.goal||''); if(goal===null)return;
+  const intro=prompt('项目介绍（可较长的多行文本）：',p.intro||''); if(intro===null)return;
+  const status=prompt('状态(active/planning/paused/done/archived)：',p.status); if(status===null)return;
+  await api('/projects/'+p.id+wsParam(),{method:'PATCH',body:JSON.stringify({name,goal,intro,status})});
+  await loadProjects(); await refreshProject(); toast('已保存');
+};
+
+/* ---- tabs ---- */
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>setTab(t.dataset.tab));
 
 /* ---- new project ---- */
-$('#newProjBtn').onclick = ()=>{ $('#modal').classList.add('open'); };
-$('#npCancel').onclick = ()=>$('#modal').classList.remove('open');
-$('#npOk').onclick = async ()=>{
-  const name = $('#npName').value.trim();
-  if(!name){ toast('请填项目名'); return; }
-  const tags = $('#npTags').value.split(',').map(s=>s.trim()).filter(Boolean);
-  const {project} = await api('/projects'+wsParam(), {method:'POST', body:JSON.stringify({
-    name, goal:$('#npGoal').value.trim(), status:$('#npStatus').value, tags})});
+$('#newProjBtn').onclick=()=>$('#modal').classList.add('open');
+$('#npCancel').onclick=()=>$('#modal').classList.remove('open');
+$('#npOk').onclick=async()=>{
+  const name=$('#npName').value.trim(); if(!name){toast('请填项目名');return;}
+  const tags=$('#npTags').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const {project}=await api('/projects'+wsParam(),{method:'POST',body:JSON.stringify({name,goal:$('#npGoal').value.trim(),status:$('#npStatus').value,tags})});
   $('#modal').classList.remove('open');
   $('#npName').value=$('#npGoal').value=$('#npTags').value='';
-  await loadProjects(); await openBoard(project.id); toast('已创建看板');
+  await loadProjects(); await openProject(project.id); toast('已创建');
 };
 
-/* ---- workspace switch ---- */
-$('#wsSel').onchange = async e=>{
-  state.ws = e.target.value; localStorage.setItem('ak_ws', state.ws);
-  $('#wsBadge').textContent = 'workspace: '+state.ws;
-  state.current=null; $('#board').innerHTML='<div class="empty"><div class="big">🗂</div>左侧选一个项目</div>';
-  $('#tName').textContent='选择左侧一个项目'; $('#tGoal').textContent='';
-  await loadProjects();
-};
-
-/* ---- double click title opens detail ---- */
-$('#tName').ondblclick = openDrawer;
-
-$('#q').oninput = renderProjects;
+$('#lightbox').onclick=()=>$('#lightbox').classList.remove('open');
+$('#q').oninput=renderProjects;
+$('#tName').ondblclick=()=>setTab('info');
 
 (async function init(){
   await loadWorkspaces();
   await loadProjects();
-  // auto open first project
-  if(state.projects.length){ openBoard(state.projects[0].id); }
+  if(state.projects.length) openProject(state.projects[0].id);
 })();
 </script>
 </body>

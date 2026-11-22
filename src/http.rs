@@ -56,6 +56,8 @@ pub async fn serve(store: Arc<Store>, host: &str, port: u16) {
         .route("/api/projects/:id/materials", post(add_material))
         .route("/api/projects/:id/decisions", post(add_decision))
         .route("/api/projects/:id/events", post(add_timeline))
+        .route("/api/projects/:id/features", post(add_feature))
+        .route("/api/projects/:id/screenshots", post(add_screenshot))
         .route("/api/projects/:id/tasks", post(add_task))
         .route("/api/projects/:id/tasks/reorder", post(reorder_tasks))
         .route("/api/projects/:id/tasks/:tid", patch(patch_task).delete(del_task))
@@ -139,11 +141,12 @@ struct ProjectPatch {
     goal: Option<String>,
     status: Option<String>,
     tags: Option<Vec<String>>,
+    intro: Option<String>,
 }
 
 async fn patch_project(State(s): State<AppState>, Path(id): Path<String>, Query(q): Query<WsQuery>, headers: axum::http::HeaderMap, Json(b): Json<ProjectPatch>) -> Response {
     let ws = pick_ws(&q, &headers);
-    let ok = s.store.update_project(&ws, &id, b.name.as_deref(), b.goal.as_deref(), b.status.as_deref(), b.tags.as_deref());
+    let ok = s.store.update_project(&ws, &id, b.name.as_deref(), b.goal.as_deref(), b.status.as_deref(), b.tags.as_deref(), b.intro.as_deref());
     if ok { Json(json!({ "ok": true, "project": s.store.get_project(&ws, &id) })).into_response() }
     else { err(StatusCode::NOT_FOUND, "项目不存在") }
 }
@@ -158,6 +161,24 @@ async fn delete_project(State(s): State<AppState>, Path(id): Path<String>, Query
 struct KVBody { #[serde(default)] label: String, value: String }
 #[derive(Deserialize)]
 struct TextBody { text: String }
+
+#[derive(Deserialize)]
+struct StrBody { #[serde(default)] feature: String, #[serde(default)] url: String }
+
+async fn add_feature(State(s): State<AppState>, Path(id): Path<String>, Query(q): Query<WsQuery>, headers: axum::http::HeaderMap, Json(b): Json<StrBody>) -> Response {
+    let ws = pick_ws(&q, &headers);
+    match s.store.append_json(&ws, &id, "features", json!(b.feature)) {
+        Some(a) => Json(json!({ "ok": true, "features": a })).into_response(),
+        None => err(StatusCode::NOT_FOUND, "项目不存在"),
+    }
+}
+async fn add_screenshot(State(s): State<AppState>, Path(id): Path<String>, Query(q): Query<WsQuery>, headers: axum::http::HeaderMap, Json(b): Json<StrBody>) -> Response {
+    let ws = pick_ws(&q, &headers);
+    match s.store.append_json(&ws, &id, "screenshots", json!(b.url)) {
+        Some(a) => Json(json!({ "ok": true, "screenshots": a })).into_response(),
+        None => err(StatusCode::NOT_FOUND, "项目不存在"),
+    }
+}
 
 async fn add_host(State(s): State<AppState>, Path(id): Path<String>, Query(q): Query<WsQuery>, headers: axum::http::HeaderMap, Json(b): Json<KVBody>) -> Response {
     let ws = pick_ws(&q, &headers);

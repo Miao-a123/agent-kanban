@@ -1,6 +1,8 @@
 /target
 /.tmp
 /.run
+/target2
 *.db
 *.db-shm
 *.db-wal
+agent-kanban-bin.exe

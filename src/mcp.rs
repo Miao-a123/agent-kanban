@@ -73,10 +73,17 @@ fn tool_defs() -> Value {
             "name": {"type":"string"}, "goal": {"type":"string"},
             "status": {"type":"string","description":"active|planning|paused|done|archived"},
             "tags": {"type":"array","items":{"type":"string"}} }, "required":["name"] } },
-        { "name": "ak_update_project", "description": "更新项目字段（name/goal/status/tags）。",
+        { "name": "ak_update_project", "description": "更新项目字段（name/goal/status/tags/intro 介绍）。",
           "inputSchema": { "type": "object", "properties": {
             "id": {"type":"string"}, "name": {"type":"string"}, "goal": {"type":"string"},
-            "status": {"type":"string"}, "tags": {"type":"array","items":{"type":"string"}} }, "required":["id"] } },
+            "status": {"type":"string"}, "tags": {"type":"array","items":{"type":"string"}},
+            "intro": {"type":"string","description":"项目介绍（可较长，纯文本/条列）"} }, "required":["id"] } },
+        { "name": "ak_add_feature", "description": "给项目追加一条功能点（功能清单）。",
+          "inputSchema": { "type": "object", "properties": {
+            "id": {"type":"string"}, "feature": {"type":"string"} }, "required":["id","feature"] } },
+        { "name": "ak_add_screenshot", "description": "给项目追加一张截图（URL 或本地路径）。",
+          "inputSchema": { "type": "object", "properties": {
+            "id": {"type":"string"}, "url": {"type":"string"} }, "required":["id","url"] } },
         { "name": "ak_add_host", "description": "给项目追加一条部署位置/地址/路径。",
           "inputSchema": { "type": "object", "properties": {
             "id": {"type":"string"}, "label": {"type":"string"}, "value": {"type":"string"} }, "required":["id","value"] } },
@@ -159,7 +166,8 @@ fn call_tool(store: &Store, ws: &str, params: &Value) -> Value {
                 args.get("name").and_then(|x| x.as_str()),
                 args.get("goal").and_then(|x| x.as_str()),
                 args.get("status").and_then(|x| x.as_str()),
-                tags.as_deref());
+                tags.as_deref(),
+                args.get("intro").and_then(|x| x.as_str()));
             if ok { text_result(json!({ "ok": true, "project": store.get_project(ws, &id) })) }
             else { err_result("项目不存在或不属于当前 agent") }
         }
@@ -182,6 +190,14 @@ fn call_tool(store: &Store, ws: &str, params: &Value) -> Value {
             let id = s(&args, "id");
             let v = json!({ "text": s(&args,"text"), "at": chrono::Local::now().format("%Y-%m-%dT%H:%M:%S").to_string() });
             match store.append_json(ws, &id, "timeline", v) { Some(a) => text_result(json!({ "ok": true, "timeline": a })), None => err_result("项目不存在或不属于当前 agent") }
+        }
+        "ak_add_feature" => {
+            let id = s(&args, "id");
+            match store.append_json(ws, &id, "features", json!(s(&args, "feature"))) { Some(a) => text_result(json!({ "ok": true, "features": a })), None => err_result("项目不存在或不属于当前 agent") }
+        }
+        "ak_add_screenshot" => {
+            let id = s(&args, "id");
+            match store.append_json(ws, &id, "screenshots", json!(s(&args, "url"))) { Some(a) => text_result(json!({ "ok": true, "screenshots": a })), None => err_result("项目不存在或不属于当前 agent") }
         }
         "ak_add_task" => {
             let pid = match pid_of(store, ws, &args) {

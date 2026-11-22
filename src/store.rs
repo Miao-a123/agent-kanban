@@ -55,6 +55,9 @@ impl Store {
                 goal TEXT NOT NULL DEFAULT '',
                 status TEXT NOT NULL DEFAULT 'active',
                 tags TEXT NOT NULL DEFAULT '',
+                intro TEXT NOT NULL DEFAULT '',
+                features TEXT NOT NULL DEFAULT '[]',
+                screenshots TEXT NOT NULL DEFAULT '[]',
                 hosts TEXT NOT NULL DEFAULT '[]',
                 materials TEXT NOT NULL DEFAULT '[]',
                 decisions TEXT NOT NULL DEFAULT '[]',
@@ -77,6 +80,10 @@ impl Store {
             CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id);
             "#,
         )?;
+        // 老库平滑升级：缺列则补
+        let _ = c.execute("ALTER TABLE projects ADD COLUMN intro TEXT NOT NULL DEFAULT ''", []);
+        let _ = c.execute("ALTER TABLE projects ADD COLUMN features TEXT NOT NULL DEFAULT '[]'", []);
+        let _ = c.execute("ALTER TABLE projects ADD COLUMN screenshots TEXT NOT NULL DEFAULT '[]'", []);
         Ok(())
     }
 
@@ -119,13 +126,16 @@ impl Store {
         ).unwrap();
         Project {
             id, workspace: ws.to_string(), name: name.to_string(), goal: goal.to_string(),
-            status, tags: tags.to_vec(), hosts: vec![], materials: vec![], decisions: vec![],
+            status, tags: tags.to_vec(), intro: String::new(), features: vec![],
+            screenshots: vec![], hosts: vec![], materials: vec![], decisions: vec![],
             timeline: vec![], tasks: vec![], created_at: ts.clone(), updated_at: ts,
         }
     }
 
     fn row_to_project(r: &rusqlite::Row) -> rusqlite::Result<Project> {
         let tags: String = r.get("tags")?;
+        let features: String = r.get("features")?;
+        let screenshots: String = r.get("screenshots")?;
         let hosts: String = r.get("hosts")?;
         let materials: String = r.get("materials")?;
         let decisions: String = r.get("decisions")?;
@@ -137,6 +147,9 @@ impl Store {
             goal: r.get("goal")?,
             status: r.get("status")?,
             tags: if tags.is_empty() { vec![] } else { tags.split(',').map(|s| s.to_string()).collect() },
+            intro: r.get("intro").unwrap_or_default(),
+            features: serde_json::from_str(&features).unwrap_or_default(),
+            screenshots: serde_json::from_str(&screenshots).unwrap_or_default(),
             hosts: serde_json::from_str(&hosts).unwrap_or_default(),
             materials: serde_json::from_str(&materials).unwrap_or_default(),
             decisions: serde_json::from_str(&decisions).unwrap_or_default(),
@@ -214,7 +227,7 @@ impl Store {
         (t, td, dg, dn)
     }
 
-    pub fn update_project(&self, ws: &str, id: &str, name: Option<&str>, goal: Option<&str>, status: Option<&str>, tags: Option<&[String]>) -> bool {
+    pub fn update_project(&self, ws: &str, id: &str, name: Option<&str>, goal: Option<&str>, status: Option<&str>, tags: Option<&[String]>, intro: Option<&str>) -> bool {
         let c = self.conn.lock().unwrap();
         let ts = now();
         let mut sets: Vec<String> = vec!["updated_at=?1".into()];
@@ -222,6 +235,7 @@ impl Store {
         let mut vals: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(ts)];
         if let Some(n) = name { vals.push(Box::new(n.to_string())); sets.push(format!("name=?{}", vals.len())); }
         if let Some(g) = goal { vals.push(Box::new(g.to_string())); sets.push(format!("goal=?{}", vals.len())); }
+        if let Some(i) = intro { vals.push(Box::new(i.to_string())); sets.push(format!("intro=?{}", vals.len())); }
         if let Some(s) = status {
             if STATUSES.contains(&s) { vals.push(Box::new(s.to_string())); sets.push(format!("status=?{}", vals.len())); }
         }
